@@ -1,0 +1,590 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r setup, include=FALSE}
+
+# This chunk shows/hides the code in your final report. When echo = TRUE, the code
+# is shown in the report. When echo = FALSE, the code is hidden from the final report.
+# We would like to see your code, so please leave the setting as is during the course.
+# This chunk will not show up in your reports, so you can safely ignore its existence.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(plyr)
+library(plotly)
+library(skimr)
+library(caret)
+```
+
+```{r}
+#1
+dfc<-read_csv("assignment3Carvana.csv")
+
+
+```
+
+
+```{r}
+skim(dfc)
+```
+
+
+```{r}
+set.seed(52156)
+dfcTrain <- dfc %>% dplyr::sample_frac (0.65)
+dfcTest <-dplyr:: setdiff (dfc,dfcTrain)
+```
+
+
+```{r}
+#2a
+pl <- ggplot(data = dfcTrain) + 
+geom_boxplot(mapping = aes(x=as.factor(BadBuy),y=MMRAauction ), fill='lightblue')+
+  labs(title= "Boxplot of cars are lemon or not versus auction prices", x= "Cars are Lemon or not", y="Auction Prices")
+pl
+```
+```{r}
+pl1 <- ggplot(data = dfcTrain) + 
+geom_boxplot(mapping = aes(x=as.factor(BadBuy),y=Age ),fill='lightblue')+
+  labs(title= "Boxplot of cars are lemon or not versus Age of vehicle", x= "Cars are Lemon or not", y="Age")
+pl1
+```
+
+
+```{r}
+pl2 <- ggplot(data = dfcTrain) + 
+geom_boxplot(mapping = aes(x=as.factor(BadBuy),y=Odo ),fill='lightblue')+
+  labs(title= "Boxplot of cars are lemon or not versus Vehicle Odometer reading", x= "Cars are Lemon or not", y="Vehicle Odometer reading")
+pl2
+```
+
+
+```{r}
+#ggplotly(pl)
+#ggplotly(pl1)
+#ggplotly(pl2)
+```
+
+
+```{r}
+#2b
+
+dfcTrain %>%
+  group_by(Size,BadBuy)%>%
+  tally() %>% 
+  mutate(pct = 100*n/sum(n)) %>%
+  arrange(desc(BadBuy))
+ 
+```
+
+
+```{r}
+#3
+dfc$BadBuy <- as.factor(dfc$BadBuy)
+
+fitLinear<- lm(formula= BadBuy~.,data=dfcTrain)
+summary(fitLinear)
+tidy(fitLinear)
+```
+
+
+```{r}
+resultsfitLinear <- dfcTest %>%
+  			mutate(predictedBadBuy = predict(fitLinear, dfcTest))
+resultsfitLinear
+performance <- metric_set(rmse)
+performance(resultsfitLinear,truth=BadBuy,estimate=predictedBadBuy)
+```
+
+```{r}
+resultsfitLinearTrain <- dfcTrain %>%
+  			mutate(predictedBadBuy = predict(fitLinear, dfcTrain))
+resultsfitLinearTrain
+performance <- metric_set(rmse)
+performance(resultsfitLinearTrain,truth=BadBuy,estimate=predictedBadBuy)
+
+```
+
+
+```{r}
+resultsfitLinear <- resultsfitLinear %>%
+  mutate(predicted = ifelse(predictedBadBuy>0.5, 1, 0))
+
+```
+
+
+```{r}
+resultsfitLinear %>% 
+  xtabs(~predicted+BadBuy,.) %>% 
+  confusionMatrix(positive='1')
+```
+# false negative are more i.e. the predicted class is negative whereas it is actually a lemon. So, a badbuy is classified as not badbuy
+# false positive means a car which is not a badbuy is predicted to be a badbuy
+# false negative is a more serious error, 
+
+```{r}
+positive_class <- sum(resultsfitLinear$BadBuy)
+negative_class <- 3521 -sum(resultsfitLinear$BadBuy)
+baseline_accuracy=negative_class/(negative_class+positive_class)
+baseline_accuracy
+```
+# Yes, the model perform better than a random classifier
+
+```{r}
+#3e
+new<- data.frame(Auction="ADESA",	Age=1,Make="HONDA",Color="SILVER",WheelType="Covers",Odo=10000,Size="LARGE",MMRAauction=8000,MMRAretail=10000)
+predict(fitLinear, newdata=new)
+
+  
+```
+
+```{r}
+#4
+resultsLogistic <-
+  train(BadBuy~.,family='binomial',data=dfcTrain,method='glm') %>% 
+	predict( dfcTest,type='raw') %>%	  
+	bind_cols(dfcTest, predictedProb=.) %>% 	
+	mutate(predictedClass =ifelse(predictedProb>=0.5, 1, 0) )
+resultsLogistic
+```
+
+
+
+
+```{r}
+dfc
+
+```
+
+
+
+```{r}
+dfc %>% 
+  group_by(Color) %>% 
+  tally()
+```
+
+
+```{r}
+dfc %>% 
+  group_by(Make) %>% 
+  tally()
+```
+
+
+```{r}
+
+dfc$Color <- revalue(dfc$Color, c("NULL"="NULL", "NOTAVAIL"="NULL"))
+
+dfc$Make <- revalue(dfc$Make, c("ACURA"="OTHER", "CADILLAC"="OTHER","LEXUS"="OTHER","MINI"="OTHER","SUBARU"="OTHER","VOLVO"="OTHER"))
+
+
+
+dfc$BadBuy <- as.factor(dfc$BadBuy)
+
+```
+
+
+```{r}
+dfc %>% 
+  group_by(Color) %>% 
+  tally()
+```
+```{r}
+dfc %>% 
+  group_by(Make) %>% 
+  tally() 
+  
+```
+
+
+
+
+```{r}
+dfc
+```
+```{r}
+dfc$Auction <- as.factor(dfc$Auction)
+dfc$Color <- as.factor(dfc$Color)
+dfc$Make <- as.factor(dfc$Make)
+dfc$WheelType <- as.factor(dfc$WheelType)
+dfc$Size <- as.factor(dfc$Size)
+dfc
+```
+
+```{r}
+set.seed(52156)
+dfcNewTrain <- dfc %>% dplyr::sample_frac (0.65)
+dfcNewTest <-dplyr:: setdiff (dfc,dfcNewTrain)
+```
+
+
+
+```{r}
+#dfcNewTrain$BadBuy <- as.factor(dfcNewTrain$BadBuy)
+resultsNew <-
+	train(BadBuy~.,family='binomial',data=dfcNewTrain,method='glm') %>% 
+	predict( dfcNewTest,type='raw') %>%	  
+	bind_cols(dfcNewTest, predictedProb=.)
+resultsNew
+```
+
+
+```{r}
+#4e
+logistic_model <- train(BadBuy~.,family='binomial',data=dfcNewTrain,method='glm')
+
+
+```
+```{r}
+summary(logistic_model)
+```
+
+
+```{r}
+#4
+confmat <- 
+resultsNew %>% 
+  xtabs(~BadBuy+predictedProb,.) %>% 
+  confusionMatrix(positive='1') 
+confmat
+confmat %>% 
+  tidy()
+```
+
+
+
+
+```{r}
+#5a
+set.seed(123)
+
+```
+```{r}
+modelLDA <- train(BadBuy~.,data=dfcNewTrain,method='lda', trControl=trainControl(method='cv',number=10))
+summary(modelLDA)
+```
+
+```{r}
+resultsLDA <-
+	modelLDA %>% 
+	predict( dfcNewTest,type='raw') %>%	  
+	bind_cols(dfcNewTest, predictedProb=.)
+resultsLDA
+```
+
+
+```{r}
+confmat <-resultsLDA %>% 
+  xtabs(~BadBuy+predictedProb,.) %>% 
+  confusionMatrix(positive='1') 
+confmat
+confmat %>% 
+  tidy()
+```
+
+
+
+
+```{r}
+#5b
+set.seed(123)
+modelknn <- train(BadBuy~.,data=dfcNewTrain,method='knn',
+                  trControl=trainControl(method='cv',number=10),
+                  preProcess=c("center","scale"),
+                  tuneLength=20)
+summary(modelknn)
+
+```
+
+```{r}
+plot(modelknn)
+```
+
+
+```{r}
+modelknn$bestTune
+```
+
+
+```{r}
+resultsknn <-
+	modelknn %>% 
+	predict( dfcNewTest,type='raw') %>%	  
+	bind_cols(dfcNewTest, predictedProb=.)
+resultsknn
+```
+
+
+```{r}
+confmat <-resultsknn %>% 
+  xtabs(~BadBuy+predictedProb,.) %>% 
+  confusionMatrix(positive='1') 
+confmat
+confmat %>% 
+  tidy()
+```
+
+
+```{r}
+#5c Lasso
+set.seed(123)
+
+
+lambdaValues <- 10^seq(-5, 2, length = 100)
+fitLasso <- train(BadBuy ~ ., family='binomial', data=dfcNewTrain, method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid = expand.grid(alpha=1, lambda=lambdaValues))
+
+#Variable importance complete table
+varImp(fitLasso)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+
+#Variable importance plot with the most important variables
+plot(varImp(fitLasso), top=25)    # Add top = XX to change the number of visible variables
+
+#Optimum lambda selected by the algorithm
+fitLasso$bestTune$lambda   # You can also run fitLasso$finalModel$lambdaOpt
+
+#Not so useful but helps with understanding -See how variables are dropped as lambda increases
+plot(fitLasso$finalModel, xvar="lambda", label = TRUE)
+
+#Not so useful but helps with understanding -See the coefficients from the final lasso model
+coef(fitLasso$finalModel, fitLasso$bestTune$lambda)   # You can also use fitLasso$finalModel$lambdaOpt for optimum lambda
+
+
+```
+```{r}
+fitLasso$finalModel$lambdaOpt
+```
+
+```{r}
+resultsLasso <- 
+  fitLasso %>%
+  predict(dfcNewTest, type='raw') %>%
+  bind_cols(dfcNewTest, predictedClass=.)
+
+
+
+
+```
+```{r}
+resultsLasso %>% 
+  xtabs(~BadBuy+predictedClass, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+```{r}
+
+#ridge
+set.seed(123)
+
+
+lambdaValues <- 10^seq(-5, 2, length = 100)
+fitRidge <- train(BadBuy ~ ., family='binomial', data=dfcNewTrain, method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid = expand.grid(alpha=0, lambda=lambdaValues))
+
+#Variable importance complete table
+varImp(fitRidge)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+
+#Variable importance plot with the most important variables
+plot(varImp(fitRidge),top=25)    # Add top = XX to change the number of visible variables
+
+#Optimum lambda selected by the algorithm
+fitRidge$bestTune$lambda   # You can also run fitLasso$finalModel$lambdaOpt
+
+#Not so useful but helps with understanding -See how variables are dropped as lambda increases
+#plot(fitLasso$finalModel, xvar="lambda", label = TRUE)
+
+#Not so useful but helps with understanding -See the coefficients from the final lasso model
+#coef(fitLasso$finalModel, fitLasso$bestTune$lambda)   # You can also use fitLasso$finalModel$lambdaOpt for optimum lambda
+
+```
+```{r}
+fitRidge$finalModel$lambdaOpt
+```
+
+```{r}
+resultsRidge <- 
+  fitRidge %>%
+  predict(dfcNewTest, type='raw') %>%
+  bind_cols(dfcNewTest, predictedClass=.)
+
+resultsRidge %>% 
+  xtabs(~BadBuy+predictedClass, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+
+```{r}
+# elastic net
+#Set the grid for the lambda values
+lambdaValues <- 10^seq(-5, 2, length = 100)
+
+set.seed(123)
+
+fitElastic <- train(BadBuy ~ ., family='binomial', data=dfcNewTrain, method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid=expand.grid(alpha=0.5, lambda=lambdaValues))
+
+#Variable importance complete table
+varImp(fitElastic)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+
+#Variable importance plot with the most important variables
+plot(varImp(fitElastic), top=25)    # Add top = XX to change the number of visible variables
+
+#Optimum lambda selected by the algorithm
+fitElastic$bestTune$lambda   # You can also run fitElastic$finalModel$lambdaOpt
+
+#Not so useful but helps with understanding -See how variables are dropped as lambda increases
+#plot(fitElastic$finalModel, xvar="lambda", label = TRUE)
+
+#Not so useful but helps with understanding -See the coefficients from the final Elastic model
+#coef(fitElastic$finalModel, fitElastic$bestTune$lambda)   # You can also use fitElastic$finalModel$lambdaOpt for optimum lambda
+
+resultsElastic <- 
+  fitElastic %>%
+  predict(dfcNewTest, type='raw') %>%
+  bind_cols(dfcNewTest, predictedClass=.)
+
+resultsElastic %>% 
+  xtabs(~BadBuy+predictedClass, .) %>% 
+  confusionMatrix(positive = '1')
+
+```
+
+
+```{r}
+#5e QDA
+set.seed(123)
+modelQDA <- train(BadBuy~.,data=dfcNewTrain,method='qda')
+
+modelQDA
+```
+```{r}
+resultsQda <- 
+  modelQDA%>%
+  predict(dfcNewTest, type='raw') %>%
+  bind_cols(dfcNewTest, predictedClass=.)
+
+resultsQda %>% 
+  xtabs(~BadBuy+predictedClass, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+
+
+```{r}
+resultsLDAProb <- bind_cols(dfcNewTest,modelLDA %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="LDA")
+resultskNNProb <- bind_cols(dfcNewTest,modelknn %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="kNN")
+resultsLassoProb <- bind_cols(dfcNewTest,fitLasso %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="Lasso")
+resultsRidgeProb <- bind_cols(dfcNewTest,fitRidge %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="Ridge")
+resultsElasticNetProb <- bind_cols(dfcNewTest,fitElastic %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="ElasticNet")
+resultsQDAProb <- bind_cols(dfcNewTest,modelQDA %>%  predict(dfcNewTest, type='prob') )%>%mutate(model="QDA")
+
+
+```
+
+
+
+```{r}
+fitall <- bind_rows(resultsLDAProb, resultskNNProb, resultsLassoProb,resultsRidgeProb,resultsElasticNetProb,resultsQDAProb)
+fitall %>%
+  group_by(model) %>% # group to get individual ROC curve for each model
+  roc_curve(truth = BadBuy, '1') %>% # get values to plot an ROC curve
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) + # plota ROC curve for each model
+  geom_line(size = 1.1) +
+  geom_abline(slope = 1, intercept = 0, size = 0.4) +
+  coord_fixed()
+```
+
+```{r}
+fitall %>%
+  group_by(model) %>% # group to get individual AUC value for each model
+  roc_auc(truth = BadBuy, '1')
+```
+
+
+```{r}
+set.seed(123)
+#lasoo with lamba 0.01
+fitLasso1 <- train(BadBuy ~ ., family='binomial', data=dfcNewTrain, method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid = expand.grid(alpha=1, lambda=0.01))
+
+#Variable importance complete table
+varImp(fitLasso1)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+
+#Variable importance plot with the most important variables
+plot(varImp(fitLasso1), top=25)    # Add top = XX to change the number of visible variables
+
+#Optimum lambda selected by the algorithm
+fitLasso1$bestTune$lambda   # You can also run fitLasso$finalModel$lambdaOpt
+
+#Not so useful but helps with understanding -See how variables are dropped as lambda increases
+plot(fitLasso1$finalModel, xvar="lambda", label = TRUE)
+
+#Not so useful but helps with understanding -See the coefficients from the final lasso model
+coef(fitLasso1$finalModel, fitLasso$bestTune$lambda)   # You can also use fitLasso$finalModel$lambdaOpt for optimum lambda
+
+```
+
+```{r warning=FALSE}
+# grp lasso 
+
+
+library(grplasso)
+
+dfTrainGroup <-
+  dfcNewTrain %>%
+  mutate(BadBuy = as.numeric(BadBuy)) %>% 
+  mutate(BadBuy = ifelse(BadBuy == 2, 1, 0))
+
+set.seed(123)
+
+fitGroupedLasso <- grplasso(BadBuy ~ ., data=dfTrainGroup, model=LogReg(), lambda=50)
+fitGroupedLasso1 <- grplasso(BadBuy ~ ., data=dfTrainGroup, model=LogReg(), lambda=100)
+
+fitGroupedLasso$coefficients
+
+fitGroupedLasso1$coefficients
+```
+
+
+
+
+
+
+```{r}
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+```
+
