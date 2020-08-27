@@ -11,9 +11,9 @@ The objective is to develop models to predict the outcome variable “BadBuy”,
 * Logistic regression achieves an accuracy of 66.99%. The coefficient of Age is 0.2785. The exp(0.2785) is 1.32. It indicates, for every one year change in the age of the car, the odds of the car being classified as a lemon increase by 1.32 times while all else held constant. The coefficient of SizeVAN is -0.5982. The exp(-0.598) = 0.549 indicates that the size of car being a VAN makes the odds of a car becoming a lemon approximately 0.549 times than the odds we would have with the baseline case of size while all else held constant. 
 
 * The performance measures for the LDA model are: 
- * Accuracy: 67.23% 
- * Sensitivity: 70.97% 
- * Specificity:64.77% 
+  * Accuracy: 67.23% 
+  * Sensitivity: 70.97% 
+  * Specificity:64.77% 
 
  * If we compare the LDA model with logistic regression, logistic model has an accuracy of 67%. There is only a marginal increase in accuracy of LDA with respect to logistic model. This points out that the both the model performs almost similarly for the given data, which is true as the given data is linear. If we compare the sensitivity and specificity of both the models, we can see a kind of tradeoff as LDA model loses out marginally on specificity but gains on sensitivity.
 
